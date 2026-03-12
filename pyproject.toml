@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tinkclaw-mcp"
+version = "1.0.0"
+description = "TinkClaw financial signals API — MCP server for Claude Desktop, Cursor, and other MCP clients"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+tinkclaw-mcp = "tinkclaw_mcp.server:main"
