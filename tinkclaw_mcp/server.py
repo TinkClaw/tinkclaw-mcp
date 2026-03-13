@@ -52,6 +52,53 @@ def _get(path: str, params: dict[str, Any] | None = None) -> dict:
         return {"error": f"Unexpected error: {type(e).__name__}: {e}"}
 
 
+def _post(path: str, body: dict[str, Any] | None = None) -> dict:
+    """Make an authenticated POST request to the TinkClaw API."""
+    try:
+        resp = requests.post(
+            f"{BASE_URL}{path}",
+            json=body,
+            headers={"X-API-Key": _api_key()},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else "unknown"
+        body_text = ""
+        if e.response is not None:
+            try:
+                body_text = e.response.json().get("error", e.response.text[:200])
+            except Exception:
+                body_text = e.response.text[:200]
+        return {"error": f"HTTP {code}: {body_text}"}
+    except Exception as e:
+        return {"error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+def _delete(path: str) -> dict:
+    """Make an authenticated DELETE request to the TinkClaw API."""
+    try:
+        resp = requests.delete(
+            f"{BASE_URL}{path}",
+            headers={"X-API-Key": _api_key()},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else "unknown"
+        body_text = ""
+        if e.response is not None:
+            try:
+                body_text = e.response.json().get("error", e.response.text[:200])
+            except Exception:
+                body_text = e.response.text[:200]
+        return {"error": f"HTTP {code}: {body_text}"}
+    except Exception as e:
+        return {"error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
 def _fmt(data: dict) -> str:
     """Format API response as readable JSON."""
     return json.dumps(data, indent=2, default=str)
@@ -274,6 +321,146 @@ def alpha_scan() -> str:
         "threshold": "70%",
         "results": high_conf,
     })
+
+
+# ---------------------------------------------------------------------------
+# Bot Training / Feedback Loop tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def get_my_predictions(status: str = "all", symbol: str = "", limit: int = 50) -> str:
+    """Get your prediction history with outcomes — the core feedback loop for learning.
+
+    Shows resolved predictions with hit/miss status, P&L, and regime at prediction time.
+    Use this to analyze which conditions lead to wins vs losses.
+
+    Args:
+        status: Filter by "all", "active", "hit", or "missed"
+        symbol: Filter to a specific symbol (e.g., "BTC"), empty for all
+        limit: Max results 1-100 (default 50)
+    """
+    params = {"status": status, "limit": limit}
+    if symbol:
+        params["symbol"] = symbol.upper()
+    return _fmt(_get("/agent/me/predictions", params))
+
+
+@mcp.tool()
+def get_my_stats(group_by: str = "symbol") -> str:
+    """Get your aggregated performance stats for self-improvement.
+
+    Breaks down accuracy, P&L, and confidence by different dimensions.
+
+    Args:
+        group_by: Group results by "symbol", "regime", "timeframe", or "direction"
+    """
+    return _fmt(_get("/agent/me/stats", {"group_by": group_by}))
+
+
+@mcp.tool()
+def get_signal_history(symbol: str, limit: int = 50) -> str:
+    """Get historical signals for a symbol — useful for backtesting and pattern analysis.
+
+    Returns recent signals with price, confidence, RSI, MACD, flow, and more.
+
+    Args:
+        symbol: The trading symbol (e.g., "BTC", "AAPL")
+        limit: Max results 1-200 (default 50)
+    """
+    return _fmt(_get(f"/signals/history/{symbol.upper()}", {"limit": limit}))
+
+
+@mcp.tool()
+def get_predictions_archive(
+    status: str = "all", symbol: str = "", regime: str = "",
+    timeframe: str = "", limit: int = 500, offset: int = 0,
+) -> str:
+    """Query full prediction history from permanent archive (SQLite-backed).
+
+    Unlike get_my_predictions (Redis, max 100), this returns unlimited history
+    with P&L, regime, and resolution data — ideal for training and backtesting.
+
+    Args:
+        status: Filter by status — "all", "active", "hit", "missed"
+        symbol: Filter by symbol (e.g., "BTC")
+        regime: Filter by regime at prediction time
+        timeframe: Filter by timeframe (e.g., "1h", "4h")
+        limit: Max results 1-1000 (default 500)
+        offset: Pagination offset
+    """
+    params = {"limit": limit, "offset": offset}
+    if status != "all":
+        params["status"] = status
+    if symbol:
+        params["symbol"] = symbol.upper()
+    if regime:
+        params["regime"] = regime
+    if timeframe:
+        params["timeframe"] = timeframe
+    return _fmt(_get("/agent/me/predictions/archive", params))
+
+
+@mcp.tool()
+def get_stats_archive(group_by: str = "symbol") -> str:
+    """Get full performance stats from permanent archive.
+
+    Returns accuracy, P&L, and confidence breakdowns from all historical
+    predictions (not just the last 100).
+
+    Args:
+        group_by: Group stats by "symbol", "regime", "timeframe", or "direction"
+    """
+    return _fmt(_get("/agent/me/stats/archive", {"group_by": group_by}))
+
+
+@mcp.tool()
+def get_signal_history_bulk(symbol: str, limit: int = 500, days: int = 0) -> str:
+    """Get bulk historical signals from permanent archive — for backtesting.
+
+    Returns signals with full indicator snapshots (RSI, MACD, Bollinger, VPIN,
+    flow, etc.) from SQLite archive. Much larger history than the Redis-backed
+    get_signal_history endpoint.
+
+    Args:
+        symbol: The trading symbol (e.g., "BTC", "AAPL")
+        limit: Max results 1-5000 (default 500)
+        days: Limit to last N days (0 = all time)
+    """
+    params = {"limit": limit}
+    if days > 0:
+        params["days"] = days
+    return _fmt(_get(f"/signals/history/{symbol.upper()}/bulk", params))
+
+
+@mcp.tool()
+def register_webhook(url: str, secret: str = "", events: str = "prediction_resolved") -> str:
+    """Register a webhook to receive prediction resolution notifications.
+
+    When your predictions are resolved (hit or missed), TinkClaw will POST
+    a JSON payload to your URL with HMAC-SHA256 signature if secret is set.
+
+    Args:
+        url: HTTPS callback URL to receive webhook POSTs
+        secret: Optional HMAC secret for signature verification
+        events: Comma-separated event types (default: "prediction_resolved")
+    """
+    body = {"url": url, "events": events}
+    if secret:
+        body["secret"] = secret
+    return _fmt(_post("/agent/webhook", body))
+
+
+@mcp.tool()
+def get_webhook() -> str:
+    """Check your current webhook registration status."""
+    return _fmt(_get("/agent/webhook"))
+
+
+@mcp.tool()
+def delete_webhook() -> str:
+    """Remove your webhook registration."""
+    return _fmt(_delete("/agent/webhook"))
 
 
 # ---------------------------------------------------------------------------
