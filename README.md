@@ -13,7 +13,7 @@ MCP (Model Context Protocol) server that exposes the [TinkClaw](https://tinkclaw
 | `get_indicators` | Technical indicators (RSI, MACD, Bollinger) |
 | `get_risk_metrics` | Sharpe, VaR, Sortino, max drawdown |
 | `get_correlation` | Correlation matrix between symbols |
-| `get_screener` | All 62 symbols ranked by signal strength |
+| `get_screener` | All 60+ symbols ranked by signal strength |
 | `get_ecosystem` | Cross-asset correlations + systemic risk |
 | `get_order_flow` | Order flow data (Pro plan) |
 | `get_news` | Financial news for a symbol |
