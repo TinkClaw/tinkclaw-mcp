@@ -7,7 +7,7 @@ from typing import Any
 import requests
 from mcp.server.fastmcp import FastMCP
 
-BASE_URL = "https://api.tinkclaw.com/v1"
+BASE_URL = "https://tinkclaw.com"
 MARKET_URL = "https://tinkclaw.com"
 
 mcp = FastMCP(
@@ -29,7 +29,7 @@ def _get(path: str, params: dict[str, Any] | None = None) -> dict:
         resp = requests.get(
             f"{BASE_URL}{path}",
             params=params,
-            headers={"X-API-Key": _api_key()},
+            headers={"Authorization": f"Bearer {_api_key()}"},
             timeout=30,
         )
         resp.raise_for_status()
@@ -59,7 +59,7 @@ def _post(path: str, body: dict[str, Any] | None = None) -> dict:
         resp = requests.post(
             f"{BASE_URL}{path}",
             json=body,
-            headers={"X-API-Key": _api_key()},
+            headers={"Authorization": f"Bearer {_api_key()}"},
             timeout=30,
         )
         resp.raise_for_status()
@@ -132,7 +132,7 @@ def _delete(path: str) -> dict:
     try:
         resp = requests.delete(
             f"{BASE_URL}{path}",
-            headers={"X-API-Key": _api_key()},
+            headers={"Authorization": f"Bearer {_api_key()}"},
             timeout=30,
         )
         resp.raise_for_status()
@@ -167,7 +167,7 @@ def get_signals(symbol: str) -> str:
     Args:
         symbol: Ticker symbol, e.g. BTCUSD, AAPL, EURUSD
     """
-    return _fmt(_get("/signals", {"symbol": symbol}))
+    return _fmt(_get(f"/api/signals/{symbol.upper()}"))
 
 
 @mcp.tool()
@@ -177,7 +177,7 @@ def get_signals_ml(symbols: str) -> str:
     Args:
         symbols: Comma-separated ticker symbols, e.g. BTCUSD,ETHUSD,AAPL
     """
-    return _fmt(_get("/signals-ml", {"symbols": symbols}))
+    return _fmt(_get("/api/signals", {"symbols": symbols}))
 
 
 @mcp.tool()
@@ -187,7 +187,7 @@ def get_regime(symbol: str) -> str:
     Args:
         symbol: Ticker symbol, e.g. BTCUSD, AAPL
     """
-    return _fmt(_get("/regime", {"symbol": symbol}))
+    return _fmt(_get("/api/regime", {"symbol": symbol.upper()}))
 
 
 @mcp.tool()
@@ -197,7 +197,7 @@ def get_confluence(symbol: str) -> str:
     Args:
         symbol: Ticker symbol, e.g. BTCUSD, AAPL
     """
-    return _fmt(_get("/confluence", {"symbol": symbol}))
+    return _fmt(_get(f"/api/confluence/{symbol.upper()}"))
 
 
 @mcp.tool()
@@ -208,7 +208,7 @@ def get_indicators(symbols: str, range_days: int = 30) -> str:
         symbols: Comma-separated ticker symbols, e.g. BTCUSD,AAPL
         range_days: Number of days of historical data (default: 30)
     """
-    return _fmt(_get("/indicators", {"symbols": symbols, "range": range_days}))
+    return _fmt(_get("/api/indicators", {"symbols": symbols, "range": range_days}))
 
 
 @mcp.tool()
@@ -218,7 +218,7 @@ def get_risk_metrics(symbols: str) -> str:
     Args:
         symbols: Comma-separated ticker symbols, e.g. BTCUSD,ETHUSD
     """
-    return _fmt(_get("/risk-metrics", {"symbols": symbols}))
+    return _fmt(_get("/api/risk-metrics", {"symbols": symbols}))
 
 
 @mcp.tool()
@@ -228,19 +228,19 @@ def get_correlation(symbols: str) -> str:
     Args:
         symbols: Comma-separated ticker symbols (at least 2), e.g. BTCUSD,ETHUSD,AAPL
     """
-    return _fmt(_get("/correlation", {"symbols": symbols}))
+    return _fmt(_get("/api/correlation", {"symbols": symbols}))
 
 
 @mcp.tool()
 def get_screener() -> str:
     """Get all 62 supported symbols ranked by signal strength. No arguments needed."""
-    return _fmt(_get("/screener"))
+    return _fmt(_get("/api/screener"))
 
 
 @mcp.tool()
 def get_ecosystem() -> str:
     """Get cross-asset correlations and systemic risk overview. No arguments needed."""
-    return _fmt(_get("/ecosystem"))
+    return _fmt(_get("/api/ecosystem"))
 
 
 @mcp.tool()
@@ -250,7 +250,7 @@ def get_order_flow(symbol: str) -> str:
     Args:
         symbol: Ticker symbol, e.g. BTCUSD, AAPL
     """
-    return _fmt(_get(f"/flow/{symbol}"))
+    return _fmt(_get(f"/api/flow/{symbol.upper()}"))
 
 
 @mcp.tool()
@@ -260,13 +260,13 @@ def get_news(symbol: str) -> str:
     Args:
         symbol: Ticker symbol, e.g. BTCUSD, AAPL
     """
-    return _fmt(_get("/news", {"symbol": symbol}))
+    return _fmt(_get("/api/news", {"symbol": symbol.upper()}))
 
 
 @mcp.tool()
 def get_market_summary() -> str:
     """Get a broad market overview across all asset classes. No arguments needed."""
-    return _fmt(_get("/market-summary"))
+    return _fmt(_get("/api/market-summary"))
 
 
 @mcp.tool()
@@ -278,7 +278,7 @@ def get_backtest(symbol: str, strategy: str = "hurst_momentum", days: int = 365)
         strategy: Strategy name (default: hurst_momentum)
         days: Lookback period in days (default: 365)
     """
-    return _fmt(_get("/backtest", {"symbol": symbol, "strategy": strategy, "days": days}))
+    return _fmt(_get("/api/backtest", {"symbol": symbol.upper(), "strategy": strategy, "days": days}))
 
 
 @mcp.tool()
@@ -290,19 +290,19 @@ def get_hurst_history(symbol: str, days: int = 365, window: int = 60) -> str:
         days: Lookback period in days (default: 365)
         window: Rolling window size in days (default: 60)
     """
-    return _fmt(_get("/hurst-history", {"symbol": symbol, "days": days, "window": window}))
+    return _fmt(_get("/api/hurst-history", {"symbol": symbol.upper(), "days": days, "window": window}))
 
 
 @mcp.tool()
 def get_symbols() -> str:
     """List all supported symbols (stocks, crypto, forex, commodities, indices)."""
-    return _fmt(_get("/symbols"))
+    return _fmt(_get("/api/symbols"))
 
 
 @mcp.tool()
 def get_health() -> str:
     """Check TinkClaw API health status."""
-    return _fmt(_get("/health"))
+    return _fmt(_get("/health"))  # /health is at root, not /api/health
 
 
 # ---------------------------------------------------------------------------
@@ -316,9 +316,9 @@ def get_morning_brief() -> str:
 
     Chains market-summary + ecosystem + screener into one call. No arguments needed.
     """
-    summary = _get("/market-summary")
-    ecosystem = _get("/ecosystem")
-    screener = _get("/screener")
+    summary = _get("/api/market-summary")
+    ecosystem = _get("/api/ecosystem")
+    screener = _get("/api/screener")
 
     return _fmt({
         "market_summary": summary,
@@ -334,10 +334,10 @@ def deep_dive(symbol: str) -> str:
     Args:
         symbol: Ticker symbol, e.g. BTCUSD, AAPL
     """
-    signals = _get("/signals", {"symbol": symbol})
-    regime = _get("/regime", {"symbol": symbol})
-    indicators = _get("/indicators", {"symbols": symbol, "range": 30})
-    risk = _get("/risk-metrics", {"symbols": symbol})
+    signals = _get(f"/api/signals/{symbol.upper()}")
+    regime = _get("/api/regime", {"symbol": symbol.upper()})
+    indicators = _get("/api/indicators", {"symbols": symbol.upper(), "range": 30})
+    risk = _get("/api/risk-metrics", {"symbols": symbol.upper()})
 
     return _fmt({
         "symbol": symbol,
@@ -354,7 +354,7 @@ def alpha_scan() -> str:
 
     Returns only symbols where signal confidence exceeds 70%. No arguments needed.
     """
-    screener = _get("/screener")
+    screener = _get("/api/screener")
 
     items = screener.get("data", screener)
     if not isinstance(items, list):
@@ -394,7 +394,7 @@ def get_my_predictions(status: str = "all", symbol: str = "", limit: int = 50) -
     params = {"status": status, "limit": limit}
     if symbol:
         params["symbol"] = symbol.upper()
-    return _fmt(_get("/agent/me/predictions", params))
+    return _fmt(_get("/api/agent/me/predictions", params))
 
 
 @mcp.tool()
@@ -406,7 +406,7 @@ def get_my_stats(group_by: str = "symbol") -> str:
     Args:
         group_by: Group results by "symbol", "regime", "timeframe", or "direction"
     """
-    return _fmt(_get("/agent/me/stats", {"group_by": group_by}))
+    return _fmt(_get("/api/agent/me/stats", {"group_by": group_by}))
 
 
 @mcp.tool()
@@ -419,7 +419,7 @@ def get_signal_history(symbol: str, limit: int = 50) -> str:
         symbol: The trading symbol (e.g., "BTC", "AAPL")
         limit: Max results 1-200 (default 50)
     """
-    return _fmt(_get(f"/signals/history/{symbol.upper()}", {"limit": limit}))
+    return _fmt(_get(f"/api/signals/history/{symbol.upper()}", {"limit": limit}))
 
 
 @mcp.tool()
@@ -449,7 +449,7 @@ def get_predictions_archive(
         params["regime"] = regime
     if timeframe:
         params["timeframe"] = timeframe
-    return _fmt(_get("/agent/me/predictions/archive", params))
+    return _fmt(_get("/api/agent/me/predictions/archive", params))
 
 
 @mcp.tool()
@@ -462,7 +462,7 @@ def get_stats_archive(group_by: str = "symbol") -> str:
     Args:
         group_by: Group stats by "symbol", "regime", "timeframe", or "direction"
     """
-    return _fmt(_get("/agent/me/stats/archive", {"group_by": group_by}))
+    return _fmt(_get("/api/agent/me/stats/archive", {"group_by": group_by}))
 
 
 @mcp.tool()
@@ -481,7 +481,7 @@ def get_signal_history_bulk(symbol: str, limit: int = 500, days: int = 0) -> str
     params = {"limit": limit}
     if days > 0:
         params["days"] = days
-    return _fmt(_get(f"/signals/history/{symbol.upper()}/bulk", params))
+    return _fmt(_get(f"/api/signals/history/{symbol.upper()}/bulk", params))
 
 
 @mcp.tool()
@@ -499,19 +499,19 @@ def register_webhook(url: str, secret: str = "", events: str = "prediction_resol
     body = {"url": url, "events": events}
     if secret:
         body["secret"] = secret
-    return _fmt(_post("/agent/webhook", body))
+    return _fmt(_post("/api/agent/webhook", body))
 
 
 @mcp.tool()
 def get_webhook() -> str:
     """Check your current webhook registration status."""
-    return _fmt(_get("/agent/webhook"))
+    return _fmt(_get("/api/agent/webhook"))
 
 
 @mcp.tool()
 def delete_webhook() -> str:
     """Remove your webhook registration."""
-    return _fmt(_delete("/agent/webhook"))
+    return _fmt(_delete("/api/agent/webhook"))
 
 
 # ---------------------------------------------------------------------------

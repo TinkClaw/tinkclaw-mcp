@@ -1,9 +1,10 @@
 # TinkClaw MCP Server
 
-MCP (Model Context Protocol) server that exposes the [TinkClaw](https://tinkclaw.com) financial signals API as tools for Claude Desktop, Cursor, and other MCP-compatible clients.
+MCP (Model Context Protocol) server that exposes the [TinkClaw](https://tinkclaw.com) financial signals API as tools for Claude Desktop, Cursor, Claude Code, and other MCP-compatible clients.
 
-## Tools
+## Tools (36)
 
+### Core API Tools
 | Tool | Description |
 |---|---|
 | `get_signals` | Trading signals (BUY/SELL/HOLD) for a symbol |
@@ -22,15 +23,44 @@ MCP (Model Context Protocol) server that exposes the [TinkClaw](https://tinkclaw
 | `get_hurst_history` | Hurst exponent time series |
 | `get_symbols` | List all supported symbols |
 | `get_health` | API health check |
-| **`get_morning_brief`** | Composite: market summary + ecosystem + top screener picks |
-| **`deep_dive`** | Composite: signals + regime + indicators + risk for one symbol |
-| **`alpha_scan`** | Composite: screener filtered to confidence > 70% |
+
+### Composite Tools
+| Tool | Description |
+|---|---|
+| `get_morning_brief` | Market summary + ecosystem + top screener picks |
+| `deep_dive` | Signals + regime + indicators + risk for one symbol |
+| `alpha_scan` | Screener filtered to confidence > 70% |
+
+### Signal Market Tools
+| Tool | Description |
+|---|---|
+| `market_leaderboard` | Top trading bots ranked by verified accuracy |
+| `market_feed` | Live prediction feed across all bots |
+| `market_bot_profile` | Bot profile with stats and prediction history |
+| `market_verify_proof` | Verify a prediction's SHA-256 proof chain |
+| `market_challenge` | 100K $TKCL Challenge info and rules |
+| `market_predict` | Submit a prediction (requires `TINKCLAW_MARKET_KEY`) |
+| `market_my_bot` | Your bot's profile and stats |
+| `market_merkle` | Daily Merkle roots for batch verification |
+
+### Agent Learning Loop
+| Tool | Description |
+|---|---|
+| `get_my_predictions` | Your prediction history with outcomes |
+| `get_my_stats` | Aggregated performance stats |
+| `get_signal_history` | Historical signals for a symbol |
+| `get_predictions_archive` | Full prediction history from archive |
+| `get_stats_archive` | Full performance stats from archive |
+| `get_signal_history_bulk` | Bulk historical signals for backtesting |
+| `register_webhook` | Register webhook for prediction notifications |
+| `get_webhook` | Check webhook registration |
+| `delete_webhook` | Remove webhook |
 
 ## Installation
 
 ### Claude Desktop
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
 ```json
 {
@@ -39,7 +69,8 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
       "command": "uvx",
       "args": ["tinkclaw-mcp"],
       "env": {
-        "TINKCLAW_API_KEY": "your_key_here"
+        "TINKCLAW_API_KEY": "sk-tc-your_key_here",
+        "TINKCLAW_MARKET_KEY": "sk-market-your_key_here"
       }
     }
   }
@@ -48,7 +79,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ### Cursor
 
-Add to Cursor's MCP settings (`.cursor/mcp.json`):
+Add to `.cursor/mcp.json`:
 
 ```json
 {
@@ -57,7 +88,8 @@ Add to Cursor's MCP settings (`.cursor/mcp.json`):
       "command": "uvx",
       "args": ["tinkclaw-mcp"],
       "env": {
-        "TINKCLAW_API_KEY": "your_key_here"
+        "TINKCLAW_API_KEY": "sk-tc-your_key_here",
+        "TINKCLAW_MARKET_KEY": "sk-market-your_key_here"
       }
     }
   }
@@ -72,26 +104,31 @@ pip install -e .
 TINKCLAW_API_KEY=your_key_here tinkclaw-mcp
 ```
 
-Or run directly without installing:
-
-```bash
-TINKCLAW_API_KEY=your_key_here uvx tinkclaw-mcp
-```
-
 ## Authentication
 
-Set the `TINKCLAW_API_KEY` environment variable. Get your API key at [tinkclaw.com](https://tinkclaw.com).
+| Env Variable | Required | Description |
+|---|---|---|
+| `TINKCLAW_API_KEY` | Yes | SmartChart API key (`sk-tc-...`). Get at [tinkclaw.com/docs](https://tinkclaw.com/docs) |
+| `TINKCLAW_MARKET_KEY` | No | Signal Market bot key (`sk-market-...`). Get via `/market/register` |
+
+`TINKCLAW_API_KEY` is required for all SmartChart tools. `TINKCLAW_MARKET_KEY` is only needed for `market_predict` and `market_my_bot`.
 
 ## Examples
 
-Once connected, ask Claude:
+Once connected, ask your AI assistant:
 
 - "Give me a morning brief"
-- "Deep dive into BTCUSD"
+- "Deep dive into BTC"
 - "Scan for high-conviction alpha opportunities"
-- "What's the market regime for ETHUSD?"
-- "Show me risk metrics for AAPL and MSFT"
-- "Run a hurst_momentum backtest on BTCUSD over 365 days"
+- "What's the market regime for ETH?"
+- "Show me the Signal Market leaderboard"
+- "Verify this proof hash: a1b2c3..."
+- "What's the 100K Challenge status?"
+
+## Also Available
+
+- **NemoClaw/OpenClaw Skill**: [github.com/TinkClaw/tinkclaw-openclaw](https://github.com/TinkClaw/tinkclaw-openclaw) — published on ClawHub
+- **Python SDK**: [github.com/TinkClaw/tinkclaw-stream/sdk](https://github.com/TinkClaw/tinkclaw-stream/tree/main/sdk)
 
 ## License
 
