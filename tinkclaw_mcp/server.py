@@ -8,10 +8,11 @@ import requests
 from mcp.server.fastmcp import FastMCP
 
 BASE_URL = "https://api.tinkclaw.com/v1"
+MARKET_URL = "https://tinkclaw.com"
 
 mcp = FastMCP(
     "TinkClaw",
-    description="Financial signals, market regime, risk metrics, and more from TinkClaw API",
+    description="Financial signals, market regime, risk metrics, Signal Market bot competition, and more from TinkClaw API",
 )
 
 
@@ -59,6 +60,56 @@ def _post(path: str, body: dict[str, Any] | None = None) -> dict:
             f"{BASE_URL}{path}",
             json=body,
             headers={"X-API-Key": _api_key()},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else "unknown"
+        body_text = ""
+        if e.response is not None:
+            try:
+                body_text = e.response.json().get("error", e.response.text[:200])
+            except Exception:
+                body_text = e.response.text[:200]
+        return {"error": f"HTTP {code}: {body_text}"}
+    except Exception as e:
+        return {"error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+def _market_get(path: str, params: dict[str, Any] | None = None) -> dict:
+    """Make a GET request to the Signal Market API (no auth for public endpoints)."""
+    try:
+        headers = {"Content-Type": "application/json"}
+        key = os.environ.get("TINKCLAW_MARKET_KEY", "")
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+        resp = requests.get(f"{MARKET_URL}{path}", params=params, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else "unknown"
+        body = ""
+        if e.response is not None:
+            try:
+                body = e.response.json().get("error", e.response.text[:200])
+            except Exception:
+                body = e.response.text[:200]
+        return {"error": f"HTTP {code}: {body}"}
+    except Exception as e:
+        return {"error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+def _market_post(path: str, body: dict[str, Any] | None = None) -> dict:
+    """Make an authenticated POST request to the Signal Market API."""
+    key = os.environ.get("TINKCLAW_MARKET_KEY", "")
+    if not key:
+        return {"error": "TINKCLAW_MARKET_KEY not set. Register at tinkclaw.com/signal-market"}
+    try:
+        resp = requests.post(
+            f"{MARKET_URL}{path}",
+            json=body,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             timeout=30,
         )
         resp.raise_for_status()
@@ -461,6 +512,106 @@ def get_webhook() -> str:
 def delete_webhook() -> str:
     """Remove your webhook registration."""
     return _fmt(_delete("/agent/webhook"))
+
+
+# ---------------------------------------------------------------------------
+# Signal Market tools — bot competition + marketplace
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def market_leaderboard(limit: int = 20, min_predictions: int = 10) -> str:
+    """Get the Signal Market leaderboard — top trading bots ranked by verified accuracy.
+
+    Every prediction is SHA-256 hash-chained and optionally attested on Solana.
+    Bots compete for badges (Diamond/Gold/Silver/Bronze) based on accuracy and consistency.
+
+    Args:
+        limit: Number of results (default 20, max 100)
+        min_predictions: Minimum predictions to qualify (default 10)
+    """
+    return _fmt(_market_get("/market/leaderboard", {"limit": limit, "min_predictions": min_predictions}))
+
+
+@mcp.tool()
+def market_feed(limit: int = 30, status: str = "all") -> str:
+    """Get the live prediction feed — all predictions across all bots.
+
+    Args:
+        limit: Number of results (default 30, max 200)
+        status: Filter by "all", "pending", "hit", or "missed"
+    """
+    return _fmt(_market_get("/market/feed", {"limit": limit, "status": status}))
+
+
+@mcp.tool()
+def market_bot_profile(bot_id: str) -> str:
+    """Get a bot's full profile — stats, prediction history, symbol breakdown.
+
+    Args:
+        bot_id: The bot's ID (e.g., "market:DguQ6BMV:alpha-bot")
+    """
+    return _fmt(_market_get(f"/market/bot/{bot_id}"))
+
+
+@mcp.tool()
+def market_verify_proof(proof_hash: str) -> str:
+    """Verify a prediction's cryptographic proof chain and Solana attestation.
+
+    Args:
+        proof_hash: The SHA-256 proof hash to verify
+    """
+    return _fmt(_market_get(f"/market/verify/{proof_hash}"))
+
+
+@mcp.tool()
+def market_challenge() -> str:
+    """Get the 100K $TKCL Challenge info — rules, leaderboard, stats.
+
+    The challenge awards 100,000 $TKCL to the first bot that hits 80%+ accuracy
+    over 100 resolved predictions. Ends June 30, 2026.
+    """
+    return _fmt(_market_get("/market/challenge"))
+
+
+@mcp.tool()
+def market_predict(symbol: str, direction: str, confidence: float, timeframe: str = "1h") -> str:
+    """Submit a prediction to the Signal Market. Requires TINKCLAW_MARKET_KEY.
+
+    Your prediction is immediately SHA-256 hash-chained. Paid tier bots get
+    Solana Memo attestation. The resolver grades outcomes automatically.
+
+    Args:
+        symbol: Ticker symbol (e.g., "BTC", "ETH", "AAPL")
+        direction: "BUY" or "SELL"
+        confidence: Confidence level 0.0 to 1.0
+        timeframe: Resolution window — "1h", "4h", or "24h" (default "1h")
+    """
+    return _fmt(_market_post("/market/predict", {
+        "symbol": symbol.upper(),
+        "direction": direction.upper(),
+        "confidence": confidence,
+        "timeframe": timeframe,
+    }))
+
+
+@mcp.tool()
+def market_my_bot() -> str:
+    """Get your bot's profile and stats. Requires TINKCLAW_MARKET_KEY."""
+    return _fmt(_market_get("/market/me"))
+
+
+@mcp.tool()
+def market_merkle(days: int = 7) -> str:
+    """Get daily Merkle roots for batch proof verification.
+
+    Each day's predictions are rolled into a Merkle tree. Roots are published
+    for independent verification of the entire prediction history.
+
+    Args:
+        days: Number of days to return (default 7, max 90)
+    """
+    return _fmt(_market_get("/market/merkle", {"days": days}))
 
 
 # ---------------------------------------------------------------------------
