@@ -282,18 +282,6 @@ def get_backtest(symbol: str, strategy: str = "hurst_momentum", days: int = 365)
 
 
 @mcp.tool()
-def get_hurst_history(symbol: str, days: int = 365, window: int = 60) -> str:
-    """Get Hurst exponent time series for a symbol. Values > 0.5 indicate trending behavior.
-
-    Args:
-        symbol: Ticker symbol, e.g. BTCUSD
-        days: Lookback period in days (default: 365)
-        window: Rolling window size in days (default: 60)
-    """
-    return _fmt(_get("/api/hurst-history", {"symbol": symbol.upper(), "days": days, "window": window}))
-
-
-@mcp.tool()
 def get_symbols() -> str:
     """List all supported symbols (stocks, crypto, forex, commodities, indices)."""
     return _fmt(_get("/api/symbols"))
@@ -323,7 +311,7 @@ def get_morning_brief() -> str:
     return _fmt({
         "market_summary": summary,
         "ecosystem": ecosystem,
-        "screener_top_10": screener.get("data", screener)[:10] if isinstance(screener.get("data", screener), list) else screener,
+        "screener_top_10": screener.get("symbols", [])[:10],
     })
 
 
@@ -356,7 +344,7 @@ def alpha_scan() -> str:
     """
     screener = _get("/api/screener")
 
-    items = screener.get("data", screener)
+    items = screener.get("symbols", screener.get("data", screener))
     if not isinstance(items, list):
         return _fmt(screener)
 
